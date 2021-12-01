@@ -6,35 +6,37 @@ def get_tif_info(filepath):
     return upper_left_x, upper_left_y
 
 
-def tiff_to_np(filepath):
+def tiff_to_np(filepath): # Comprobar si afecta que lo devuelva en vertical y no horizontal
     import gdal
     import numpy as np
     raster = gdal.Open(filepath)
     npArray = raster.ReadAsArray()
+    npArray = np.swapaxes(npArray,0,2)
     return npArray
 
 
 def check_in_range(to_check, range_):
     matches = []
     for elem in to_check:
-        print(elem)
         if range_[0] < elem < range_[1]:
-            print('yes')
             matches.append(1)
         else:
-            print('no')
             matches.append(0)
     return matches
 
 
 def sliding_window(big_np_array, width, height, stride_x, stride_y):
     from skimage.util.shape import view_as_windows
+    import numpy as np
     # TIFF 14200x9960   ECW 14800x10060
     window_shape = (width, height)
     stride = (stride_x, stride_y)
-
-    # Crop
-    windows = view_as_windows(big_np_array, window_shape, stride)
+    # Separate into different channels and crop each channel
+    channel_windows_r = view_as_windows(big_np_array[:, :, 0], window_shape, stride)
+    channel_windows_g = view_as_windows(big_np_array[:, :, 1], window_shape, stride)
+    channel_windows_b = view_as_windows(big_np_array[:, :, 2], window_shape, stride)
+    # Stack all channels into a new array
+    windows = np.stack((channel_windows_r, channel_windows_g, channel_windows_b), axis=-1)
     return windows
 
 
@@ -56,11 +58,15 @@ def get_labels(img_coordinates, size, camp_centroids, width, height, stride_x, s
     matches = matches_x and matches_y
 
     # ------ 2 -------
-    # Check in wich division falls each camp
-    # Import o generate divisions in image
-    horizontal_div = range(0, (size[0]-width+1), stride_x)
-    vertical_div = range(0, (size[1]-height+1), stride_y)
-
+    # Check for no matches in the area
+    if sum(matches)==0:
+        labels = None
+    # If there are matches:
+    else:
+        # Check in wich division falls each camp
+        # Import o generate divisions in image
+        horizontal_div = range(0, (size[0]-width+1), stride_x)
+        vertical_div = range(0, (size[1]-height+1), stride_y)
 
     return labels
 
