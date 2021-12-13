@@ -6,12 +6,12 @@ def get_tif_info(filepath):
     return upper_left_x, upper_left_y
 
 
-def tiff_to_np(filepath): # Comprobar si afecta que lo devuelva en vertical y no horizontal
+def tiff_to_np(filepath):  # Comprobar si afecta que lo devuelva en vertical y no horizontal
     import gdal
     import numpy as np
     raster = gdal.Open(filepath)
     npArray = raster.ReadAsArray()
-    npArray = np.swapaxes(npArray,0,2)
+    npArray = np.swapaxes(npArray, 0, 2)
     return npArray
 
 
@@ -23,6 +23,25 @@ def check_in_range(to_check, range_):
         else:
             matches.append(0)
     return matches
+
+
+def camps_in_image(img_coordinates,camp_centroids,size):
+    import numpy as np
+    # Check which camps can be found in that image
+    # Camps centroids must be between these coordinates
+    x_range = (img_coordinates[0], img_coordinates[0]+size[0])
+    y_range = (img_coordinates[1], img_coordinates[1]+size[1])
+    # Get camps that are in those ranges
+    x_coords = camp_centroids['X']
+    y_coords = camp_centroids['Y']
+
+    matches_x = check_in_range(x_coords, x_range)
+    matches_y = check_in_range(y_coords, y_range)
+
+    # Camps in desired range
+    matches = matches_x and matches_y
+    matches = np.asarray(matches)
+    return matches.astype(dtype=bool)
 
 
 def sliding_window(big_np_array, width, height, stride_x, stride_y):
@@ -42,32 +61,41 @@ def sliding_window(big_np_array, width, height, stride_x, stride_y):
 
 # noinspection SpellCheckingInspection
 def get_labels(img_coordinates, size, camp_centroids, width, height, stride_x, stride_y):
-    # ------ 1 -------
     # Check which camps can be found in that image
-    # Camps centroids must be between these coordinates
-    x_range = (img_coordinates[0], img_coordinates[0]+size[0])
-    y_range = (img_coordinates[1], img_coordinates[1]+size[1])
-    # Get camps that are in those ranges
-    x_coords = camp_centroids['X']
-    y_coords = camp_centroids['Y']
-
-    matches_x = check_in_range(x_coords, x_range)
-    matches_y = check_in_range(y_coords, y_range)
-
-    # Camps in desired range
-    matches = matches_x and matches_y
-
-    # ------ 2 -------
+    matches = camps_in_image(img_coordinates, camp_centroids, size)
     # Check for no matches in the area
-    if sum(matches)==0:
+    if sum(matches) == 0:
         labels = None
     # If there are matches:
     else:
-        # Check in wich division falls each camp
-        # Import o generate divisions in image
-        horizontal_div = range(0, (size[0]-width+1), stride_x)
-        vertical_div = range(0, (size[1]-height+1), stride_y)
+        # Create a new column that mark witch camps can be found in the image
+        camp_centroids['In_Image'] = matches
+        camp_centroids = camp_centroids.set_index('In_Image')
+        # Keep only the camps that are represented
+        camp_centroids = camp_centroids.loc[True]
 
+        # Check in wich division falls each camp
+        horizontal_div = range(0, (size[0] - width + 1), stride_x)
+        vertical_div = range(0, (size[1] - height + 1), stride_y)
+        fila = 0
+        for vd in vertical_div:
+            columna = 0
+            for hd in horizontal_div:
+                print(str('Fila: ' + str(fila) + ', Columna: ' + str(columna)))
+                print(vd + img_coordinates[1])
+                print(hd + img_coordinates[0])
+                columna = columna + 1
+            fila = fila + 1
+
+        camp_centroids_id = np.array(camp_centroids['id'], int)
+        if camp_centroids_id.size == 1:
+            print(camp_centroids_id)
+        else:
+            for elem in camp_centroids_id:
+                print(elem)
+        # print(np.array(camp_centroids['id'],int))
+
+        labels = None
     return labels
 
 
@@ -82,7 +110,7 @@ def trial():
     h = 1000
     sx = 825
     sy = 896
-    size = (14200, 9960) # Cambiarlo por el size del array, aunque todos van a ser iguales
+    size = (14200, 9960)  # Cambiarlo por el size del array, aunque todos van a ser iguales
     img_filepath = ''
     camps_filepath = ''
     camps_list = pd.read_csv(camps_filepath)
