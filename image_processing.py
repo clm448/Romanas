@@ -1,7 +1,7 @@
 def get_tif_info(filepath):
     import gdal
     r = gdal.Open(filepath)
-    # band = r.GetRasterBand(1)
+    band = r.GetRasterBand(1)
     (upper_left_x, x_size, x_rotation, upper_left_y, y_rotation, y_size) = r.GetGeoTransform()
     return upper_left_x, upper_left_y
 
@@ -61,6 +61,8 @@ def sliding_window(big_np_array, width, height, stride_x, stride_y):
 
 # noinspection SpellCheckingInspection
 def get_labels(img_coordinates, size, camp_centroids, width, height, stride_x, stride_y):
+    import numpy as np
+    camp_coordinates = [413487, 4695247]
     # Check which camps can be found in that image
     matches = camps_in_image(img_coordinates, camp_centroids, size)
     # Check for no matches in the area
@@ -74,34 +76,72 @@ def get_labels(img_coordinates, size, camp_centroids, width, height, stride_x, s
         # Keep only the camps that are represented
         camp_centroids = camp_centroids.loc[True]
 
+        x_coords = camp_centroids['X']
+        y_coords = camp_centroids['Y']
+
         # Check in wich division falls each camp
         horizontal_div = range(0, (size[0] - width + 1), stride_x)
         vertical_div = range(0, (size[1] - height + 1), stride_y)
-        fila = 0
+        print(horizontal_div)
+        print(vertical_div)
+
+        labels = []
         for vd in vertical_div:
-            columna = 0
-            for hd in horizontal_div:
-                print(str('Fila: ' + str(fila) + ', Columna: ' + str(columna)))
-                print(vd + img_coordinates[1])
-                print(hd + img_coordinates[0])
-                columna = columna + 1
-            fila = fila + 1
+            range_v = (img_coordinates[1] + vd, img_coordinates[1] + vd + 1000)
+            match_v = check_in_range([camp_coordinates[1]], range_v)
 
-        camp_centroids_id = np.array(camp_centroids['id'], int)
-        if camp_centroids_id.size == 1:
-            print(camp_centroids_id)
-        else:
-            for elem in camp_centroids_id:
-                print(elem)
-        # print(np.array(camp_centroids['id'],int))
+            matches_v = check_in_range(y_coords, y_range)
+            if sum(matches_v) > 0:
+                for hd in horizontal_div:
+                    range_h = (img_coordinates[0] + hd, img_coordinates[0] + hd + 1000)
+                    match_h = check_in_range([camp_coordinates[0]], range_h)
 
-        labels = None
+                    matches_h = check_in_range(x_coords, x_range)
+                    if sum(matches_h) > 0:
+                        labels.append(1)
+                    else:
+                        labels.append(0)
+            else:
+                labels = labels + [ele for ele in [0] for i in range(17)]
     return labels
 
 
 def labeling(images, labels):
     dataset = images + labels
-    return dataset
+
+
+def generate_dataset(image_path, camps_path):
+    import matplotlib as plt
+    import pandas as pd
+
+    # Constants used for the image cropping
+    w = 1000
+    h = 1000
+    sx = 825
+    sy = 896
+    size = (14200, 9960)
+
+    # Get the data from the image and turn it into a numpy array
+    img_coordinates = get_tif_info(image_path)
+    image_npy = tiff_to_np(image_path)
+
+    plt.imshow(image_npy)
+
+    # Open the csv with all the camps data
+    camps_list = pd.read_csv(camps_path)
+
+    # Starting with the image cropping
+    windows = sliding_window(image_npy, w, h, sx, sy)
+
+    # Check witch camps are in the current image
+    camps = camps_in_image(img_coordinates, camps_list, size)
+    camps_list['In_Image'] = camps
+    camps_list = camps_list.set_index('In_Image')
+
+    # Get the corresponding labels for the subimages generated from the bigger image
+    labels = get_labels(img_coordinates, size, camps_list, w, h, sx, sy)
+
+    labeling(windows, labels)
 
 
 def trial():
