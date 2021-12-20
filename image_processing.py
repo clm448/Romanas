@@ -93,27 +93,65 @@ def get_labels(img_coordinates, size, camp_centroids, width, height, stride_x, s
         vertical_div = range(0, (size[1] - height + 1), stride_y)
 
         labels = []
-        for vd in vertical_div:
-            range_v = (img_coordinates[1] + vd, img_coordinates[1] + vd + 1000)
-            matches_v = check_in_range(y_coords, range_v)
-            if sum(matches_v) > 0:
-                for hd in horizontal_div:
-                    range_h = (img_coordinates[0] + hd, img_coordinates[0] + hd + 1000)
-                    matches_h = check_in_range(x_coords, range_h)
-                    if sum(matches_h) > 0:
+        for hd in horizontal_div:
+            range_h = (img_coordinates[0] + hd, img_coordinates[0] + hd + 1000)
+            matches_h = check_in_range(x_coords, range_h)
+            if sum(matches_h) > 0:
+                for vd in vertical_div:
+                    range_v = (img_coordinates[1] + vd, img_coordinates[1] + vd + 1000)
+                    matches_v = check_in_range(y_coords, range_v)
+                    if sum(matches_v) > 0:
                         labels.append(1)
                     else:
                         labels.append(0)
             else:
-                labels = labels + [ele for ele in [0] for i in range(len(horizontal_div))]
+                labels = labels + [ele for ele in [0] for i in range(len(vertical_div))]
     return labels
 
 
-def labeling(images, labels):
-    dataset = images + labels
+def labeling(images, labels, img_filepath, dataset_path, name_start='PNOA'):
+    from os.path import exists
+    import numpy as np
+    import json
+    # Get the original's image filename
+    img_name = img_filepath[img_filepath.index(name_start):]
+    extension = img_name.index('.tif')
+    # Go through every image extracted from the original and match them to their tags
+    # A diccionary will be used to assign the metadata
+    metadata = {}
+
+    hd, vd = images.shape[0:2]
+    arr = np.array(labels)
+    label_mat = arr.reshape(hd, vd)
+    for i in range(hd):
+        for j in range(vd):
+            # Generate division's filename
+            div_name = str('/'+img_name[0:extension]+'_'+str(i)+'_'+str(j))
+            # Get corresponding division
+            image = images[i,j,0:1000,0:1000,0:3]
+            label = label_mat[i,j]
+            # Save the division as a new file
+            np.save(dataset_path+div_name,image)
+            # Add metadata to de dictionary
+            metadata[div_name] = int(label)
+    # Once the whole array has been saved, the global metadata dictionary is updated
+    # If there's already saved data
+    if exists(str(dataset_path+'/metadata_global.json')):
+        with open('metadata_global.json','r+') as f:
+            metadata_global = json.load(f)
+            metadata_global.update(metadata)
+            json.dump(metadata_global,f)
+            f.close()
+
+    # If this is the first iteration
+    else:
+        json_ = json.dumps(metadata)
+        f = open('metadata_global.json','w')
+        f.write(json_)
+        f.close()
 
 
-def generate_dataset(image_path, camps_path, w=1000, h=1000, sx=825, sy=896):
+def generate_dataset(image_path, camps_path, dataset_path, w=1000, h=1000, sx=825, sy=896):
     import matplotlib as plt
     import pandas as pd
     # Get the data from the image and turn it into a numpy array
@@ -139,8 +177,7 @@ def generate_dataset(image_path, camps_path, w=1000, h=1000, sx=825, sy=896):
 
     # Get the corresponding labels for the subimages generated from the bigger image
     labels = get_labels(img_coordinates, size, camps_list, w, h, sx, sy)
-
-    labeling(windows, labels)
+    labeling(windows, labels, image_path, dataset_path)
 
     # Pasos a seguir
     # Para el entrenamiento
