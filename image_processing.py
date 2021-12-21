@@ -27,11 +27,18 @@ def tiff_to_np(filepath):
 
 def check_in_range(to_check, range_):
     matches = []
-    for elem in to_check:
+    if to_check.shape == ():
+        elem = to_check
         if range_[0] < elem < range_[1]:
             matches.append(1)
         else:
             matches.append(0)
+    else:
+        for elem in to_check:
+            if range_[0] < elem < range_[1]:
+                matches.append(1)
+            else:
+                matches.append(0)
     return matches
 
 
@@ -151,14 +158,11 @@ def labeling(images, labels, img_filepath, dataset_path, name_start='PNOA'):
         f.close()
 
 
-def generate_dataset(image_path, camps_path, dataset_path, w=1000, h=1000, sx=825, sy=896):
-    import matplotlib as plt
+def generate_dataset(image_path, camps_path, dataset_path, w=1000, h=1000):
     import pandas as pd
     # Get the data from the image and turn it into a numpy array
     img_coordinates = get_tif_info(image_path)
     image_npy = tiff_to_np(image_path)
-
-    plt.imshow(image_npy)
 
     size = image_npy.shape
     sx, div_x = dynamic_step(size[0], w)
@@ -177,8 +181,12 @@ def generate_dataset(image_path, camps_path, dataset_path, w=1000, h=1000, sx=82
 
     # Get the corresponding labels for the subimages generated from the bigger image
     labels = get_labels(img_coordinates, size, camps_list, w, h, sx, sy)
-    labeling(windows, labels, image_path, dataset_path)
 
+    # Save the images and the labels
+    if labels == None:
+        print('No camps in the image '+str(image_path))
+    else:
+        labeling(windows, labels, image_path, dataset_path)
     # Pasos a seguir
     # Para el entrenamiento
     # Se tienen todas las imagenes descargadas, hay que dividirlas y etiquetarlas + centroides campamentos
