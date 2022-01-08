@@ -138,10 +138,10 @@ def labeling(images, labels, img_filepath, dataset_path, name_start='PNOA'):
             # Generate division's filename
             div_name = str('/'+img_name[0:extension]+'_'+str(i)+'_'+str(j))
             # Get corresponding division
-            image = images[i,j,0:1000,0:1000,0:3]
-            label = label_mat[i,j]
+            image = images[i, j, 0:1000, 0:1000, 0:3]
+            label = label_mat[i, j]
             # Save the division as a new file
-            np.save(dataset_path+div_name,image)
+            np.save(dataset_path+div_name, image)
             # Add metadata to de dictionary
             metadata[div_name] = int(label)
     # Once the whole array has been saved, the global metadata dictionary is updated
@@ -194,20 +194,15 @@ def generate_dataset(image_path, camps_path, dataset_path, w=1000, h=1000):
         labeling(windows, labels, image_path, dataset_path)
 
 
-def merge(dict1, dict2):
-    res = {**dict1, **dict2}
-    return res
-
-
 def list_to_dict(list_, filename):
-  import json
-  dict_={}
-  for elem in list_:
-    dict_[elem[0]] = elem[1]
-  json = json.dumps(dict_)
-  f = open(filename,"w")
-  f.write(json)
-  f.close()
+    import json
+    dict_ = {}
+    for elem in list_:
+        dict_[elem[0]] = elem[1]
+    json = json.dumps(dict_)
+    f = open(filename, "w")
+    f.write(json)
+    f.close()
 
 
 def data_formatting(json_camp_info, dataset_path, dataset_division=[70, 20, 10]):
@@ -243,10 +238,6 @@ def data_formatting(json_camp_info, dataset_path, dataset_division=[70, 20, 10])
         k, v = random.choice(list(dict_no_camps.items()))
         random_dict_no_camps[k] = v
         dict_no_camps.pop(k)
-
-    # Join both dictionaries into one with the selected images
-    merged_dict = merge(dict_camps, random_dict_no_camps)
-    n_img_merged = len(list(merged_dict.values()))
 
     # From the images selected, divide them into train, test and validation groups
     # First create the directory tree for the divisions, the remainder images will be stored
@@ -340,7 +331,7 @@ def data_formatting(json_camp_info, dataset_path, dataset_division=[70, 20, 10])
     # Save the remaining images in another directory
     for elem in glob.glob1(dataset_path, "*.npy"):
         src = str(dataset_path + '/' + elem)
-        dst = str(other_dir + '/'+ elem)
+        dst = str(other_dir + '/' + elem)
         shutil.move(src, dst)
 
 
