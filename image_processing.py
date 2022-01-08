@@ -124,12 +124,15 @@ def labeling(images, labels, img_filepath, dataset_path, name_start='PNOA'):
     img_name = img_filepath[img_filepath.index(name_start):]
     extension = img_name.index('.tif')
     # Go through every image extracted from the original and match them to their tags
-    # A diccionary will be used to assign the metadata
+    # A dictionary will be used to assign the metadata
     metadata = {}
 
     hd, vd = images.shape[0:2]
     arr = np.array(labels)
     label_mat = arr.reshape(hd, vd)
+
+    json_path = str(dataset_path+'/metadata_global.json')
+
     for i in range(hd):
         for j in range(vd):
             # Generate division's filename
@@ -143,17 +146,19 @@ def labeling(images, labels, img_filepath, dataset_path, name_start='PNOA'):
             metadata[div_name] = int(label)
     # Once the whole array has been saved, the global metadata dictionary is updated
     # If there's already saved data
-    if exists(str(dataset_path+'/metadata_global.json')):
-        with open('metadata_global.json','r+') as f:
-            metadata_global = json.load(f)
-            metadata_global.update(metadata)
-            json.dump(metadata_global,f)
-            f.close()
+    if exists(json_path):
+        f = open(json_path)
+        metadata_global = json.load(f)
+        metadata_global.update(metadata)
+        json_ = json.dumps(metadata_global)
+        f = open(json_path, 'w')
+        f.write(json_)
+        f.close()
 
     # If this is the first iteration
     else:
         json_ = json.dumps(metadata)
-        f = open('metadata_global.json','w')
+        f = open(json_path, 'w')
         f.write(json_)
         f.close()
 
@@ -187,6 +192,159 @@ def generate_dataset(image_path, camps_path, dataset_path, w=1000, h=1000):
         print('No camps in the image '+str(image_path))
     else:
         labeling(windows, labels, image_path, dataset_path)
+
+
+def merge(dict1, dict2):
+    res = {**dict1, **dict2}
+    return res
+
+
+def list_to_dict(list_, filename):
+  import json
+  dict_={}
+  for elem in list_:
+    dict_[elem[0]] = elem[1]
+  json = json.dumps(dict_)
+  f = open(filename,"w")
+  f.write(json)
+  f.close()
+
+
+def data_formatting(json_camp_info, dataset_path, dataset_division=[70, 20, 10]):
+    import json
+    import numpy as np
+    import random
+    import os
+    import shutil
+    import glob
+
+    # Open json file with dataset metadata
+    dataset_dict = open(json_camp_info)
+    dataset_dict = json.load(dataset_dict)
+
+    # Check how many images are with camps
+    array_ = np.asarray(list(dataset_dict.values()))
+
+    n_img_camps = sum(array_ == 1)
+
+    # Separate images according to the presence of camps
+    dict_camps = {}
+    dict_no_camps = {}
+    for elem in dataset_dict:
+        if dataset_dict[elem] == 1:
+            dict_camps[elem] = 1
+        else:
+            dict_no_camps[elem] = 0
+
+    # As there are more images without than with camps, chose randomly as many
+    # images without camp as with.
+    random_dict_no_camps = {}
+    for i in range(n_img_camps):
+        k, v = random.choice(list(dict_no_camps.items()))
+        random_dict_no_camps[k] = v
+        dict_no_camps.pop(k)
+
+    # Join both dictionaries into one with the selected images
+    merged_dict = merge(dict_camps, random_dict_no_camps)
+    n_img_merged = len(list(merged_dict.values()))
+
+    # From the images selected, divide them into train, test and validation groups
+    # First create the directory tree for the divisions, the remainder images will be stored
+    train_dir = os.path.join(dataset_path, 'train')
+    os.mkdir(train_dir)
+    validation_dir = os.path.join(dataset_path, 'validation')
+    os.mkdir(validation_dir)
+    test_dir = os.path.join(dataset_path, 'test')
+    os.mkdir(test_dir)
+    other_dir = os.path.join(dataset_path, 'other')
+    os.mkdir(other_dir)
+
+    # For each division, separate between images with and without camps
+    # Directory with our training camp images
+    train_camps_dir = os.path.join(train_dir, 'camps')
+    os.mkdir(train_camps_dir)
+
+    # Directory with our training no camps images
+    train_no_camps_dir = os.path.join(train_dir, 'no_camps')
+    os.mkdir(train_no_camps_dir)
+
+    # Directory with our test camp images
+    test_camps_dir = os.path.join(test_dir, 'camps')
+    os.mkdir(test_camps_dir)
+
+    # Directory with our test no camp images
+    test_no_camps_dir = os.path.join(test_dir, 'no_camps')
+    os.mkdir(test_no_camps_dir)
+
+    # Directory with our validation camp images
+    validation_camps_dir = os.path.join(validation_dir, 'camps')
+    os.mkdir(validation_camps_dir)
+
+    # Directory with our validation no camp images
+    validation_no_camps_dir = os.path.join(validation_dir, 'no_camps')
+    os.mkdir(validation_no_camps_dir)
+
+    # Get the number of images for each category
+    per_train, per_test, per_val = dataset_division
+    n_train = round(n_img_camps * per_train / 100)
+    n_test = round(n_img_camps * per_test / 100)
+    n_val = n_img_camps - n_train - n_test
+
+    div_train = n_train
+    div_test = n_train + n_test
+    div_val = div_test + n_val
+
+    # Move images to their corresponding directory
+    # Train camps
+    for elem in list(dict_camps.keys())[0:div_train]:
+        src = str(dataset_path + elem + '.npy')
+        dst = str(train_camps_dir + elem + '.npy')
+        shutil.move(src, dst)
+    # Train no camps
+    for elem in list(random_dict_no_camps.keys())[0:div_train]:
+        src = str(dataset_path + elem + '.npy')
+        dst = str(train_no_camps_dir + elem + '.npy')
+        shutil.move(src, dst)
+    # Save the corresponding dictionaries
+    list_to_dict(list(dict_camps.items())[0:div_train], 'train_camps.json')
+    list_to_dict(list(random_dict_no_camps.items())[0:div_train], 'train_no_camps.json')
+
+    # Test camps
+    for elem in list(dict_camps.keys())[div_train:div_test]:
+        src = str(dataset_path + elem + '.npy')
+        dst = str(test_camps_dir + elem + '.npy')
+        shutil.move(src, dst)
+    # Test no camps
+    for elem in list(random_dict_no_camps.keys())[div_train:div_test]:
+        src = str(dataset_path + elem + '.npy')
+        dst = str(test_no_camps_dir + elem + '.npy')
+        shutil.move(src, dst)
+    # Save the corresponding dictionaries
+    list_to_dict(list(dict_camps.items())[div_train:div_test], 'test_camps.json')
+    list_to_dict(list(random_dict_no_camps.items())[div_train:div_test], 'test_no_camps.json')
+
+    # Val camps
+    for elem in list(dict_camps.keys())[div_test:div_val]:
+        src = str(dataset_path + elem + '.npy')
+        dst = str(validation_camps_dir + elem + '.npy')
+        shutil.move(src, dst)
+    # Val no camps
+    for elem in list(random_dict_no_camps.keys())[div_test:div_val]:
+        src = str(dataset_path + elem + '.npy')
+        dst = str(validation_no_camps_dir + elem + '.npy')
+        shutil.move(src, dst)
+    # Save the corresponding dictionaries
+    list_to_dict(list(dict_camps.items())[div_test:div_val], 'val_camps.json')
+    list_to_dict(list(random_dict_no_camps.items())[div_test:div_val], 'val_no_camps.json')
+
+    # Save the remaining images in another directory
+    for elem in glob.glob1(dataset_path, "*.npy"):
+        src = str(dataset_path + '/' + elem)
+        dst = str(other_dir + '/'+ elem)
+        shutil.move(src, dst)
+
+
+
     # Pasos a seguir
     # Para el entrenamiento
     # Se tienen todas las imagenes descargadas, hay que dividirlas y etiquetarlas + centroides campamentos
