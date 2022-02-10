@@ -1,3 +1,6 @@
+# Author: Carmen López Murcia
+# Description: Group of functions that allow for the automatic download of ortoimages using UTM coordinates
+
 # Function that returns the df entry corresponding to a pair of coordinates (lat, long)
 def find_point(x, y, df_ref):
     # Function that returns the df entry corresponding to a pair of coordinates (lat, long)
@@ -128,6 +131,7 @@ def get_route(leaf, urls):
 
 
 def get_images_urls(url):
+    # The function that returns all the urls to download all files ending in .TIF or .ECW
     import requests
     from bs4 import BeautifulSoup
     reqs = requests.get(url)

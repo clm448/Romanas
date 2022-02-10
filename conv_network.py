@@ -37,9 +37,31 @@ def get_model(shape=(200, 200, 3)):
 
     return model
 
-def data_preprocessing(train_dir, validation_dir, test_dir, sample_dir_paths, size=(200, 200)):
-    from keras.preprocessing.image import ImageDataGenerator
+
+def plot_history(history):
+    import matplotlib.pyplot as plt
+    # summarize history for accuracy
+    plt.plot(history.history['acc'])
+    plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    plt.show()
+    # summarize history for loss
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    plt.show()
+
+def data_preprocessing(train_dir, validation_dir, test_dir, sample_dir_paths, size=(1024, 1024)):
+    from tensorflow.keras.preprocessing.image import ImageDataGenerator
     from tensorflow.keras import optimizers
+
+    shape = size +(3,)
 
     img_sample = get_sample(sample_dir_paths)
 
@@ -56,6 +78,7 @@ def data_preprocessing(train_dir, validation_dir, test_dir, sample_dir_paths, si
     validation_datagen.fit(img_sample)
     test_datagen.fit(img_sample)
 
+
     # Get the corresponding images from the directories
     train_generator = train_datagen.flow_from_directory(train_dir, size, batch_size=20, class_mode='binary')
     validation_generator = validation_datagen.flow_from_directory(validation_dir, size, batch_size=20,
@@ -63,7 +86,7 @@ def data_preprocessing(train_dir, validation_dir, test_dir, sample_dir_paths, si
     test_generator = test_datagen.flow_from_directory(test_dir, size, batch_size=20, class_mode='binary')
 
     # Get the desired model
-    model = get_model()
+    model = get_model(shape)
 
     # Compile the model
     model.compile(optimizer=optimizers.Adam(), loss='binary_crossentropy', metrics=['acc'])
@@ -77,4 +100,5 @@ def data_preprocessing(train_dir, validation_dir, test_dir, sample_dir_paths, si
     print("Accuracy:", test_acc)
     print("Loss:", test_lost)
 
-    return (model, test_acc, test_lost)
+    return model, test_acc, test_lost
+

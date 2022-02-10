@@ -1,4 +1,10 @@
+# Author: Carmen López Murcia
+# Description: Group of functions to formatting a group of .TIF images into a dataset made of regular sized labelled
+# jpg images
+
 def dynamic_step(measure, size):
+    # Function that returns the step in with to move the slidding window according to the desired size
+    # of the final image
     n = measure - size
     for i in range(1, 21):
         if n % i == 0:
@@ -9,6 +15,7 @@ def dynamic_step(measure, size):
 
 
 def get_tif_info(filepath):
+    # Function that returns the metadata that wants to be keep from the original .TIF images
     import gdal
     r = gdal.Open(filepath)
     band = r.GetRasterBand(1)
@@ -164,6 +171,8 @@ def labeling(images, labels, img_filepath, dataset_path, name_start='PNOA'):
         f.write(json_)
         f.close()
 
+    return json_path
+
 
 def generate_dataset(image_path, camps_path, dataset_path, w=1000, h=1000):
     import pandas as pd
@@ -193,7 +202,9 @@ def generate_dataset(image_path, camps_path, dataset_path, w=1000, h=1000):
     if labels is None:
         print('No camps in the image '+str(image_path))
     else:
-        labeling(windows, labels, image_path, dataset_path)
+        json_path = labeling(windows, labels, image_path, dataset_path)
+
+    return json_path
 
 
 def list_to_dict(list_, filename):
