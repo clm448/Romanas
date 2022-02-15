@@ -1,3 +1,5 @@
+# Author: Carmen López Murcia
+# converter from numpy to jpg, used in testing
 def numpy_to_image(path, image_extension='.jpg', name_start='PNOA'):
     import glob
     import os
