@@ -23,7 +23,7 @@ def get_tif_info(filepath):
     return upper_left_x, upper_left_y
 
 
-def tiff_to_np(filepath):
+def tif_to_np(filepath):
     import gdal
     import numpy as np
     raster = gdal.Open(filepath)
@@ -178,7 +178,7 @@ def generate_dataset(image_path, camps_path, dataset_path, w=1000, h=1000):
     import pandas as pd
     # Get the data from the image and turn it into a numpy array
     img_coordinates = get_tif_info(image_path)
-    image_npy = tiff_to_np(image_path)
+    image_npy = tif_to_np(image_path)
 
     size = image_npy.shape
     sx, div_x = dynamic_step(size[0], w)
